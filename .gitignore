@@ -1,0 +1,22 @@
+# Android Studio e Gradle
+.gradle/
+.idea/
+local.properties
+*.iml
+**/build/
+
+# Assinaturas privadas
+*.jks
+*.keystore
+*.idsig
+
+# Fontes intermediárias usadas nos testes iniciais
+app/src/main/smali/
+tools/build_standalone_apk.py
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# O APK público da página fica em docs/
+!docs/*.apk
