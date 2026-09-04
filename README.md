@@ -6,6 +6,16 @@ Google TV usando apenas o controle remoto.
 > Projeto independente, não oficial e ainda em fase de testes. Não possui
 > vínculo com a Univesp.
 
+## Download
+
+- [Baixar APK 1.0.7 (recomendado)](https://github.com/samoeu100/ava-univesp-tv/raw/refs/heads/main/docs/AVA-Univesp-TV-1.0.7.apk)
+- [Abrir o site do projeto](https://samoeu100.github.io/ava-univesp-tv/)
+- [Baixar o código-fonte em ZIP](https://github.com/samoeu100/ava-univesp-tv/archive/refs/heads/main.zip)
+
+## Autor
+
+[Samuel Alexandre no LinkedIn](https://www.linkedin.com/in/samuel-alexandre-56251a145/)
+
 ## Por que o projeto foi criado
 
 Eu faço minhas aulas pelo computador, mas queria estudar na televisão como
