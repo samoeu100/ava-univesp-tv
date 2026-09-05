@@ -37,6 +37,55 @@ public final class MainActivity extends Activity {
     private static final int CURSOR_SIZE = 48;
     private static final int CURSOR_RADIUS = CURSOR_SIZE / 2;
     private static final int CURSOR_STEP = 25;
+    private static final long REMOTE_REPEAT_DELAY_MS = 110;
+    private static final String REMOTE_NAVIGATION_SETUP =
+            "(function(){"
+            + "if(window.__avaTvMove)return;"
+            + "var marker='data-ava-tv-focus';"
+            + "var selector='a[href],button,input:not([type=hidden]),select,textarea,summary,"
+            + "[role=button],[role=link],[tabindex]:not([tabindex=\\\"-1\\\"]),iframe,video';"
+            + "if(!document.getElementById('ava-tv-focus-style')){"
+            + "var style=document.createElement('style');style.id='ava-tv-focus-style';"
+            + "style.textContent='['+marker+'=\\\"true\\\"]{outline:4px solid #35d8ff!important;"
+            + "outline-offset:3px!important;box-shadow:0 0 0 7px rgba(0,90,255,.28)!important;}';"
+            + "(document.head||document.documentElement).appendChild(style);}" 
+            + "function visible(el){var r=el.getBoundingClientRect(),s=getComputedStyle(el);"
+            + "return r.width>2&&r.height>2&&s.display!=='none'&&s.visibility!=='hidden'"
+            + "&&Number(s.opacity)!==0&&!el.disabled;}"
+            + "function items(){return Array.prototype.slice.call(document.querySelectorAll(selector)).filter(visible);}"
+            + "function focus(el){var old=document.querySelector('['+marker+'=\\\"true\\\"]');"
+            + "if(old&&old!==el)old.removeAttribute(marker);el.setAttribute(marker,'true');"
+            + "try{el.focus({preventScroll:true});}catch(e){el.focus();}"
+            + "el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}"
+            + "function scrollParent(el){for(var p=el&&el.parentElement;p;p=p.parentElement){"
+            + "var s=getComputedStyle(p),o=s.overflowY;"
+            + "if((o==='auto'||o==='scroll')&&p.scrollHeight>p.clientHeight+4)return p;}"
+            + "return document.scrollingElement||document.documentElement;}"
+            + "function scroll(el,dir){var p=scrollParent(el),vertical=dir==='up'||dir==='down';"
+            + "var amount=vertical?Math.max(140,Math.round(innerHeight*.28)):Math.max(140,Math.round(innerWidth*.20));"
+            + "var x=0,y=0;if(dir==='up')y=-amount;if(dir==='down')y=amount;"
+            + "if(dir==='left')x=-amount;if(dir==='right')x=amount;"
+            + "if(p===document.body||p===document.documentElement||p===document.scrollingElement)"
+            + "window.scrollBy({left:x,top:y,behavior:'smooth'});else p.scrollBy({left:x,top:y,behavior:'smooth'});}"
+            + "window.__avaTvMove=function(dir){var all=items();if(!all.length){scroll(null,dir);return false;}"
+            + "var current=document.activeElement;"
+            + "if(!current||current===document.body||all.indexOf(current)<0){"
+            + "var first=all.filter(function(el){var r=el.getBoundingClientRect();"
+            + "return r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;})[0]||all[0];"
+            + "focus(first);return true;}"
+            + "var a=current.getBoundingClientRect(),ax=a.left+a.width/2,ay=a.top+a.height/2,best=null,bestScore=1e20;"
+            + "all.forEach(function(el){if(el===current)return;var r=el.getBoundingClientRect();"
+            + "var x=r.left+r.width/2,y=r.top+r.height/2,dx=x-ax,dy=y-ay;"
+            + "var valid=(dir==='up'&&dy<-4)||(dir==='down'&&dy>4)||(dir==='left'&&dx<-4)||(dir==='right'&&dx>4);"
+            + "if(!valid)return;var vertical=dir==='up'||dir==='down';"
+            + "var primary=Math.abs(vertical?dy:dx),cross=Math.abs(vertical?dx:dy);"
+            + "var overlap=vertical?Math.min(a.right,r.right)-Math.max(a.left,r.left):"
+            + "Math.min(a.bottom,r.bottom)-Math.max(a.top,r.top);"
+            + "var score=primary*4+cross*(overlap>0?.35:2.4);"
+            + "if(r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth)score+=500;"
+            + "if(score<bestScore){bestScore=score;best=el;}});"
+            + "if(best){focus(best);return true;}scroll(current,dir);return false;};"
+            + "})();";
 
     private WebView webView;
     private FrameLayout root;
@@ -46,6 +95,7 @@ public final class MainActivity extends Activity {
     private boolean mouseMode = true;
     private boolean centerLongPressHandled;
     private boolean modeDialogVisible;
+    private long lastRemoteNavigationAt;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
 
@@ -157,10 +207,31 @@ public final class MainActivity extends Activity {
     private void applyControlMode(boolean showMessage) {
         cursor.setVisibility(mouseMode ? View.VISIBLE : View.GONE);
         webView.requestFocus();
+        if (mouseMode) {
+            webView.evaluateJavascript(
+                    "document.querySelectorAll('[data-ava-tv-focus]').forEach(function(e){"
+                    + "e.removeAttribute('data-ava-tv-focus');});", null);
+        } else {
+            installRemoteNavigation();
+        }
         if (showMessage) {
             Toast.makeText(this, mouseMode ? "Modo mouse" : "Modo controle",
                     Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void installRemoteNavigation() {
+        if (webView != null) webView.evaluateJavascript(REMOTE_NAVIGATION_SETUP, null);
+    }
+
+    private void navigateRemote(int keyCode) {
+        String direction;
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) direction = "up";
+        else if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) direction = "down";
+        else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) direction = "left";
+        else direction = "right";
+        webView.evaluateJavascript(
+                REMOTE_NAVIGATION_SETUP + "window.__avaTvMove('" + direction + "');", null);
     }
 
     private void updateCursorView() {
@@ -245,7 +316,22 @@ public final class MainActivity extends Activity {
             return true;
         }
 
-        if (!mouseMode) return super.dispatchKeyEvent(event);
+        if (!mouseMode) {
+            boolean direction = keyCode == KeyEvent.KEYCODE_DPAD_UP
+                    || keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                    || keyCode == KeyEvent.KEYCODE_DPAD_LEFT
+                    || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+            if (!direction) return super.dispatchKeyEvent(event);
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                long now = event.getEventTime();
+                if (event.getRepeatCount() == 0
+                        || now - lastRemoteNavigationAt >= REMOTE_REPEAT_DELAY_MS) {
+                    lastRemoteNavigationAt = now;
+                    navigateRemote(keyCode);
+                }
+            }
+            return true;
+        }
 
         boolean arrow = keyCode >= KeyEvent.KEYCODE_DPAD_UP
                 && keyCode <= KeyEvent.KEYCODE_DPAD_CENTER;
@@ -265,6 +351,12 @@ public final class MainActivity extends Activity {
     }
 
     private final class SafeWebViewClient extends WebViewClient {
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            if (!mouseMode) installRemoteNavigation();
+        }
+
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             Uri uri = Uri.parse(url);
